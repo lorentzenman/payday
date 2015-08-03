@@ -20,5 +20,11 @@ payday.py --veil --ip 1.1.1.1
 payday.py --veil --msf --ip 1.1.1.1
 
 # Clean Out Directories
-
 payday.py --clean
+
+# Specify custom output directory
+payday --veil --msf --output /path/to/custom --ip 1.1.1.1
+
+# Clean custom output directory
+payday --output /path/to/custom --clean
+

