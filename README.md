@@ -8,6 +8,7 @@ The --php option creates a pshell.txt that automatically removes the comments at
 
 -->
 Update the path to the Veil Evasion Script
+>> The tool now has error checking that show the directory structure and parses the veil config file.
 -->
 
 
@@ -16,8 +17,14 @@ Examples:
 # Generate Metasploit Payloads
 payday.py --msf --ip 1.1.1.1
 
+#Generate Metasploit Payloads with custom port
+payday.py --msf --ip 1.1.1.1 --port 7777
+
 # Generate Veil Payloads
 payday.py --veil --ip 1.1.1.1
+
+# Generate Veil Payloads with custom port
+payday.py --veil --ip 1.1.1.1 --port 7777
 
 # Generate Multiple
 payday.py --veil --msf --php --ip 1.1.1.1
