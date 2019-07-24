@@ -17,21 +17,15 @@ Examples:
 # Generate Metasploit Payloads
 payday.py --msf --ip 1.1.1.1
 
-<<<<<<< HEAD
-#Generate Metasploit Payloads with custom port
 =======
 # Generate Metasploit Payloads with custom port
->>>>>>> 9583ade2a8a4884b0394be946c9b6aab94ed945f
 payday.py --msf --ip 1.1.1.1 --port 7777
 
 # Generate Veil Payloads
 payday.py --veil --ip 1.1.1.1
 
-<<<<<<< HEAD
 # Generate Veil Payloads with custom port
 =======
-# Generate Veil Payloads
->>>>>>> 9583ade2a8a4884b0394be946c9b6aab94ed945f
 payday.py --veil --ip 1.1.1.1 --port 7777
 
 # Generate Multiple
