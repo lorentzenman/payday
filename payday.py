@@ -85,7 +85,7 @@ def msf_payloads(ip, output_dir, payload_port):
 		print("[!] Generating handler for : " + bluetxt(payload))
 
 		handler = ext.split(".")[0] + ".rc"
-		handler_file = open(base + "handlers/" + handler , "w")
+		handler_file = open(base + "handlers/" + handler , "w+")
 		handler_file.write("use exploit/multi/handler\n")
 		handler_file.write("set payload " + payload +"\n")
 		handler_file.write("set LPORT " + str(payload_port) + "\n")
